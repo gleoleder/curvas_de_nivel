@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Curvas de Nivel y Terreno 3D Interactivo</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <div class="logo-icon">🏔️</div>
+        <h1>Curvas de Nivel</h1>
+        <p class="subtitle">Visualización Topográfica Interactiva 3D</p>
+    </header>
+
+    <nav>
+        <button class="active" onclick="showSection('interactive')">
+            ✨ Visualización Interactiva
+        </button>
+        <button onclick="showSection('theory')">
+            📚 Teoría Completa
+        </button>
+    </nav>
+
+    <main>
+        <!-- Interactive Section -->
+        <section id="interactive" class="active">
+            <div class="controls">
+                <div class="control-group">
+                    <label>Tipo de Terreno</label>
+                    <select id="terrainType" onchange="updateTerrain()">
+                        <optgroup label="Terrenos Básicos">
+                            <option value="mountain">🏔️ Montaña Cónica</option>
+                            <option value="valley">🏞️ Valle</option>
+                            <option value="ridge">⛰️ Cordillera</option>
+                            <option value="crater">🌋 Cráter</option>
+                            <option value="hills">🌄 Colinas Múltiples</option>
+                            <option value="plateau">🏜️ Meseta</option>
+                            <option value="canyon">🗻 Cañón</option>
+                            <option value="volcanic">🌋 Terreno Volcánico</option>
+                        </optgroup>
+                        <optgroup label="Terrenos Avanzados">
+                            <option value="archipelago">🏝️ Archipiélago</option>
+                            <option value="glacier">❄️ Valle Glaciar</option>
+                            <option value="karst">🪨 Terreno Kárstico</option>
+                            <option value="dunes">🏜️ Campo de Dunas</option>
+                            <option value="fjord">🌊 Fiordo</option>
+                            <option value="caldera">🔥 Caldera Volcánica</option>
+                            <option value="badlands">🏚️ Badlands</option>
+                            <option value="terraces">🌾 Terrazas Agrícolas</option>
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Intervalo de Curvas</label>
+                    <select id="contourInterval" onchange="updateTerrain()">
+                        <option value="10">10 metros</option>
+                        <option value="20" selected>20 metros</option>
+                        <option value="50">50 metros</option>
+                        <option value="100">100 metros</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Altura Máxima: <span id="heightValue">200</span>m</label>
+                    <input type="range" id="maxHeight" min="100" max="500" value="200" onchange="updateTerrain()">
+                </div>
+                <div class="control-group">
+                    <label>Exageración Vertical 3D: <span id="exagValue">1.5</span>x</label>
+                    <input type="range" id="verticalExag" min="0.5" max="3" step="0.1" value="1.5" onchange="update3DExaggeration()">
+                </div>
+            </div>
+
+            <div class="viz-container">
+                <div class="viz-panel">
+                    <h3>
+                        <span class="icon">📍</span>
+                        Vista en Planta - Curvas de Nivel
+                    </h3>
+                    <div class="instructions">
+                        <strong>🖱️ Interacción:</strong> Haz clic y arrastra para dibujar una línea de perfil. 
+                        La línea indica el corte que se visualizará en el perfil topográfico.
+                    </div>
+                    <div class="canvas-wrapper">
+                        <canvas id="canvas2d"></canvas>
+                    </div>
+                    <div class="legend" id="legend2d"></div>
+                    <div class="profile-indicator">
+                        <div class="line-sample"></div>
+                        <span>Línea de perfil (arrastrar para definir)</span>
+                    </div>
+                </div>
+
+                <div class="viz-panel">
+                    <h3>
+                        <span class="icon">📊</span>
+                        Perfil Topográfico
+                    </h3>
+                    <div class="info-box">
+                        El perfil muestra la elevación del terreno a lo largo de la línea de corte definida 
+                        en la vista en planta. Las curvas de nivel se proyectan verticalmente para crear 
+                        esta representación de la sección transversal.
+                    </div>
+                    <div class="canvas-wrapper">
+                        <canvas id="canvasProfile"></canvas>
+                    </div>
+                    <div class="stats">
+                        <div class="stat-item">
+                            <div class="stat-value" id="statMaxElev">0</div>
+                            <div class="stat-label">Elevación Máx</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="statMinElev">0</div>
+                            <div class="stat-label">Elevación Mín</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="statDistance">0</div>
+                            <div class="stat-label">Distancia (m)</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="statSlope">0</div>
+                            <div class="stat-label">Pendiente Máx</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="viz-3d-container glass-card">
+                <h3>🏔️ Modelo Digital de Elevación 3D Interactivo</h3>
+                <div class="instructions">
+                    <strong>🎮 Controles:</strong> 
+                    Clic izquierdo + arrastrar para rotar | 
+                    Scroll para zoom | 
+                    Pellizcar en móvil para zoom
+                </div>
+                <div id="canvas3d"></div>
+                <div class="controls">
+                    <div class="control-group">
+                        <label>Estilo de Visualización</label>
+                        <select id="renderStyle" onchange="updateRenderStyle()">
+                            <option value="elevation">🎨 Colores por Elevación</option>
+                            <option value="slope">📐 Análisis de Pendiente</option>
+                            <option value="wireframe">🕸️ Malla de Alambre</option>
+                            <option value="contours3d">📈 Curvas de Nivel 3D</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label>Resolución del Modelo</label>
+                        <select id="resolution" onchange="updateTerrain()">
+                            <option value="80">Baja (80×80)</option>
+                            <option value="120">Media (120×120)</option>
+                            <option value="150" selected>Alta (150×150)</option>
+                            <option value="200">Ultra (200×200)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Theory Section -->
+        <section id="theory">
+            <div class="theory-content">
+                <div class="theory-section">
+                    <h2>1. Introducción a las Curvas de Nivel</h2>
+                    <p>
+                        Las <strong>curvas de nivel</strong>, también conocidas como <strong>isohipsas</strong>, son líneas 
+                        imaginarias que conectan puntos de igual elevación sobre el nivel del mar en la superficie terrestre. 
+                        Estas líneas constituyen el método más común y efectivo para representar el relieve tridimensional 
+                        del terreno en un mapa bidimensional.
+                    </p>
+                    <p>
+                        El concepto de curvas de nivel fue desarrollado en el siglo XVIII por el matemático y cartógrafo francés 
+                        <strong>Charles de Fourcroy</strong> y perfeccionado posteriormente por ingenieros militares para la 
+                        creación de mapas topográficos precisos.
+                    </p>
+                    
+                    <h3>1.1 Definición Formal</h3>
+                    <p>
+                        Matemáticamente, una curva de nivel es el lugar geométrico de todos los puntos P(x, y) del terreno 
+                        que satisfacen la ecuación:
+                    </p>
+                    <div class="formula">
+                        z = f(x, y) = constante = h
+                    </div>
+                    <p>
+                        Donde <em>z</em> representa la elevación, <em>f(x, y)</em> es la función que describe la superficie 
+                        del terreno, y <em>h</em> es el valor constante de elevación para esa curva particular.
+                    </p>
+
+                    <div class="highlight-box">
+                        <h4>💡 Concepto Clave</h4>
+                        <p>
+                            Si caminamos siguiendo exactamente una curva de nivel, nunca subiremos ni bajaremos; 
+                            mantendremos siempre la misma altitud respecto al nivel del mar.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="theory-section">
+                    <h2>2. Propiedades Fundamentales de las Curvas de Nivel</h2>
+                    
+                    <h3>2.1 Propiedades Geométricas</h3>
+                    <p><strong>1. Continuidad:</strong> Las curvas de nivel son líneas continuas que se cierran sobre sí mismas, ya sea dentro o fuera del área del mapa.</p>
+                    <p><strong>2. No intersección:</strong> Dos curvas de nivel diferentes nunca se cruzan ni se tocan, excepto en casos especiales como acantilados verticales o cuevas.</p>
+                    <p><strong>3. Perpendicularidad al gradiente:</strong> Las curvas de nivel son perpendiculares a la línea de máxima pendiente en cada punto.</p>
+                    <p><strong>4. Concentricidad en cimas y depresiones:</strong> En puntos altos o bajos aislados, las curvas forman patrones concéntricos cerrados.</p>
+
+                    <h3>2.2 Relación con la Pendiente</h3>
+                    <p>
+                        La separación entre curvas de nivel está directamente relacionada con la pendiente del terreno:
+                    </p>
+                    <p><strong>• Curvas muy juntas:</strong> Indican pendiente pronunciada (terreno escarpado)</p>
+                    <p><strong>• Curvas muy separadas:</strong> Indican pendiente suave (terreno llano)</p>
+                    <p><strong>• Curvas equidistantes:</strong> Indican pendiente constante</p>
+
+                    <div class="formula">
+                        Pendiente (%) = (Δh / d) × 100
+                        <br><br>
+                        Donde: Δh = diferencia de elevación entre curvas
+                        <br>       d = distancia horizontal entre curvas
+                    </div>
+
+                    <div class="diagram">
+                        <svg width="450" height="220" viewBox="0 0 450 220">
+                            <defs>
+                                <linearGradient id="terrainGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="0%" style="stop-color:#00d4aa"/>
+                                    <stop offset="100%" style="stop-color:#6366f1"/>
+                                </linearGradient>
+                                <filter id="glow">
+                                    <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                                    <feMerge>
+                                        <feMergeNode in="coloredBlur"/>
+                                        <feMergeNode in="SourceGraphic"/>
+                                    </feMerge>
+                                </filter>
+                            </defs>
+                            <polygon points="50,160 400,160 400,50 50,130" fill="url(#terrainGrad)" opacity="0.2"/>
+                            
+                            <line x1="90" y1="155" x2="90" y2="124" stroke="#00d4aa" stroke-width="2" filter="url(#glow)"/>
+                            <line x1="150" y1="155" x2="150" y2="110" stroke="#00d4aa" stroke-width="2" filter="url(#glow)"/>
+                            <line x1="210" y1="155" x2="210" y2="96" stroke="#00d4aa" stroke-width="2" filter="url(#glow)"/>
+                            <line x1="270" y1="155" x2="270" y2="82" stroke="#00d4aa" stroke-width="2" filter="url(#glow)"/>
+                            <line x1="330" y1="155" x2="330" y2="68" stroke="#fbbf24" stroke-width="3" filter="url(#glow)"/>
+                            <line x1="380" y1="155" x2="380" y2="56" stroke="#00d4aa" stroke-width="2" filter="url(#glow)"/>
+                            
+                            <line x1="50" y1="160" x2="400" y2="160" stroke="#94a3b8" stroke-width="1"/>
+                            
+                            <text x="90" y="180" fill="#94a3b8" font-size="11" text-anchor="middle" font-family="Inter">100m</text>
+                            <text x="210" y="180" fill="#94a3b8" font-size="11" text-anchor="middle" font-family="Inter">200m</text>
+                            <text x="330" y="180" fill="#fbbf24" font-size="11" text-anchor="middle" font-family="Inter">300m</text>
+                            <text x="225" y="30" fill="#f1f5f9" font-size="14" text-anchor="middle" font-family="Space Grotesk">Proyección de Curvas de Nivel</text>
+                        </svg>
+                    </div>
+                </div>
+
+                <div class="theory-section">
+                    <h2>3. Equidistancia y Curvas Maestras</h2>
+                    
+                    <h3>3.1 Equidistancia</h3>
+                    <p>
+                        La <strong>equidistancia</strong> es la diferencia de altura constante entre curvas de nivel 
+                        consecutivas. La elección de la equidistancia depende de la escala del mapa, el tipo de terreno 
+                        (montañoso vs. llano) y el propósito del mapa.
+                    </p>
+
+                    <div class="highlight-box">
+                        <h4>📏 Equidistancias Típicas</h4>
+                        <table>
+                            <tr>
+                                <td><strong>Escala 1:25,000</strong></td>
+                                <td>5-10 metros</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Escala 1:50,000</strong></td>
+                                <td>10-20 metros</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Escala 1:100,000</strong></td>
+                                <td>20-50 metros</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Escala 1:250,000</strong></td>
+                                <td>50-100 metros</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <h3>3.2 Curvas Maestras e Intermedias</h3>
+                    <p>Para facilitar la lectura del mapa, las curvas de nivel se clasifican en:</p>
+                    <p>
+                        <strong>• Curvas maestras (índice):</strong> Se representan con trazo más grueso y llevan 
+                        indicación numérica de su altitud. Generalmente aparecen cada 5 curvas.
+                    </p>
+                    <p>
+                        <strong>• Curvas intermedias (normales):</strong> Trazo más fino, situadas entre las curvas 
+                        maestras.
+                    </p>
+                    <p>
+                        <strong>• Curvas auxiliares:</strong> Trazo discontinuo, usadas para representar detalles 
+                        en terrenos muy suaves.
+                    </p>
+                </div>
+
+                <div class="theory-section">
+                    <h2>4. Perfiles Topográficos</h2>
+                    
+                    <h3>4.1 Definición</h3>
+                    <p>
+                        Un <strong>perfil topográfico</strong> es la representación gráfica de la sección vertical del 
+                        terreno a lo largo de una línea determinada. Muestra la variación de la elevación en función 
+                        de la distancia horizontal.
+                    </p>
+
+                    <h3>4.2 Construcción del Perfil</h3>
+                    <p>El proceso de construcción de un perfil topográfico sigue estos pasos:</p>
+                    <p><strong>1.</strong> Trazar la línea de corte sobre el mapa de curvas de nivel</p>
+                    <p><strong>2.</strong> Identificar los puntos donde la línea intersecta cada curva de nivel</p>
+                    <p><strong>3.</strong> Proyectar cada punto de intersección a un sistema de coordenadas donde el eje X representa la distancia horizontal y el eje Y la elevación</p>
+                    <p><strong>4.</strong> Unir los puntos proyectados para formar el perfil continuo</p>
+
+                    <h3>4.3 Exageración Vertical</h3>
+                    <p>
+                        Frecuentemente se aplica una <strong>exageración vertical</strong> al perfil para hacer más 
+                        evidentes las variaciones del relieve. Esta se calcula como:
+                    </p>
+                    <div class="formula">
+                        Exageración Vertical = Escala Vertical / Escala Horizontal
+                    </div>
+                    <p>
+                        Por ejemplo, si la escala horizontal es 1:10,000 y la vertical es 1:1,000, la exageración 
+                        vertical es 10x.
+                    </p>
+
+                    <div class="highlight-box">
+                        <h4>⚠️ Precaución</h4>
+                        <p>
+                            La exageración vertical distorsiona la percepción real de las pendientes. Un terreno que 
+                            aparece muy escarpado en un perfil exagerado puede ser en realidad bastante suave.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="theory-section">
+                    <h2>5. Interpretación de Formas del Terreno</h2>
+                    
+                    <h3>5.1 Formas Topográficas Básicas</h3>
+                    
+                    <p><strong>🏔️ Montaña o Cerro:</strong></p>
+                    <p>Curvas de nivel concéntricas cerradas. Los valores de elevación aumentan hacia el centro. Curvas más juntas indican laderas más empinadas.</p>
+
+                    <p><strong>🏞️ Valle:</strong></p>
+                    <p>Curvas de nivel en forma de "V" o "U". El vértice de la V apunta hacia las elevaciones mayores (aguas arriba). Valles en V indican erosión fluvial activa; en U indican erosión glaciar.</p>
+
+                    <p><strong>⛰️ Divisoria de Aguas (Cresta):</strong></p>
+                    <p>Curvas en forma de "V" invertida. El vértice apunta hacia las elevaciones menores. Separa cuencas hidrográficas adyacentes.</p>
+
+                    <p><strong>🕳️ Depresión:</strong></p>
+                    <p>Curvas concéntricas cerradas con pequeñas líneas perpendiculares (hachuras) apuntando hacia el centro. Los valores de elevación disminuyen hacia el centro.</p>
+
+                    <p><strong>🧗 Acantilado:</strong></p>
+                    <p>Curvas de nivel muy juntas o prácticamente coincidentes. En casos extremos pueden parecer una sola línea gruesa.</p>
+                </div>
+
+                <div class="theory-section">
+                    <h2>6. Modelo Digital de Elevación (MDE)</h2>
+                    
+                    <h3>6.1 Definición</h3>
+                    <p>
+                        Un <strong>Modelo Digital de Elevación (MDE)</strong> o DEM (Digital Elevation Model) es una 
+                        representación digital de la superficie del terreno. Consiste en una matriz de celdas donde 
+                        cada celda almacena un valor de elevación.
+                    </p>
+
+                    <h3>6.2 Tipos de MDE</h3>
+                    <p>
+                        <strong>• MDE Raster:</strong> Matriz regular de celdas cuadradas, cada una con un valor de 
+                        elevación. Es el formato más común.
+                    </p>
+                    <p>
+                        <strong>• TIN (Triangulated Irregular Network):</strong> Red de triángulos irregulares que 
+                        se adaptan mejor a terrenos complejos.
+                    </p>
+
+                    <h3>6.3 Obtención de Datos</h3>
+                    <p>Los MDE se pueden generar mediante: digitalización e interpolación de curvas de nivel existentes, levantamientos topográficos directos con estación total o GPS, fotogrametría aérea o satelital, LiDAR (Light Detection and Ranging), y radar de apertura sintética (InSAR).</p>
+
+                    <h3>6.4 Análisis Derivados</h3>
+                    <p>A partir de un MDE se pueden calcular:</p>
+                    <p><strong>• Pendiente:</strong> Ángulo de inclinación del terreno</p>
+                    <p><strong>• Orientación (Aspecto):</strong> Dirección hacia donde "mira" la ladera</p>
+                    <p><strong>• Curvatura:</strong> Forma convexa o cóncava del terreno</p>
+                    <p><strong>• Sombreado:</strong> Simulación de iluminación solar</p>
+                    <p><strong>• Visibilidad:</strong> Análisis de cuencas visuales</p>
+                    <p><strong>• Hidrología:</strong> Dirección de flujo, acumulación, cuencas</p>
+                </div>
+
+                <div class="theory-section">
+                    <h2>7. Aplicaciones Prácticas</h2>
+                    
+                    <h3>7.1 Ingeniería Civil</h3>
+                    <p>Diseño de carreteras y vías férreas, planificación de movimientos de tierra, diseño de sistemas de drenaje, y estudios de estabilidad de taludes.</p>
+
+                    <h3>7.2 Hidrología</h3>
+                    <p>Delimitación de cuencas hidrográficas, modelación de inundaciones, diseño de presas y embalses, y estudios de erosión.</p>
+
+                    <h3>7.3 Planificación Urbana</h3>
+                    <p>Zonificación de áreas constructibles, análisis de riesgos naturales, y planificación de servicios públicos.</p>
+
+                    <h3>7.4 Otras Aplicaciones</h3>
+                    <p>Navegación y orientación, estudios ambientales y ecológicos, arqueología, agricultura de precisión, y telecomunicaciones (análisis de cobertura).</p>
+                </div>
+
+                <div class="theory-section">
+                    <h2>8. Fórmulas y Cálculos Importantes</h2>
+                    
+                    <h3>8.1 Cálculo de Pendiente</h3>
+                    <div class="formula">
+                        Pendiente (%) = (Δz / Δd) × 100
+                        <br>
+                        Pendiente (°) = arctan(Δz / Δd)
+                        <br><br>
+                        Donde: Δz = diferencia de elevación
+                        <br>       Δd = distancia horizontal
+                    </div>
+
+                    <h3>8.2 Interpolación de Elevaciones</h3>
+                    <p>Para estimar la elevación de un punto entre dos curvas de nivel:</p>
+                    <div class="formula">
+                        z = z₁ + (d₁ / D) × (z₂ - z₁)
+                        <br><br>
+                        Donde: z₁, z₂ = elevaciones de las curvas adyacentes
+                        <br>       d₁ = distancia del punto a la curva z₁
+                        <br>       D = distancia total entre las dos curvas
+                    </div>
+
+                    <h3>8.3 Gradiente del Terreno</h3>
+                    <div class="formula">
+                        ∇z = (∂z/∂x, ∂z/∂y)
+                        <br>
+                        |∇z| = √[(∂z/∂x)² + (∂z/∂y)²]
+                        <br><br>
+                        La dirección del gradiente indica la máxima pendiente ascendente.
+                    </div>
+                </div>
+
+                <div class="theory-section">
+                    <h2>9. Referencias y Bibliografía</h2>
+                    <p>• Burrough, P.A. & McDonnell, R.A. (1998). <em>Principles of Geographical Information Systems</em>. Oxford University Press.</p>
+                    <p>• Robinson, A.H. et al. (1995). <em>Elements of Cartography</em>. John Wiley & Sons.</p>
+                    <p>• Li, Z., Zhu, Q. & Gold, C. (2005). <em>Digital Terrain Modeling: Principles and Methodology</em>. CRC Press.</p>
+                    <p>• Instituto Geográfico Nacional. <em>Manual de Cartografía Topográfica</em>.</p>
+                    <p>• USGS. <em>Map Accuracy Standards and Specifications</em>.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p class="author">Elaborado por John Leonardo Cabrera Espíndola</p>
+        <p class="author-subtitle">Visualización Topográfica Interactiva • 2024</p>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="script.js"></script>
+</body>
+</html>
